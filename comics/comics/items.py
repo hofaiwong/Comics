@@ -2,10 +2,13 @@
 from scrapy import Item, Field
 
 class ComicsItem(Item):
-    publisher = Field()
-    rating_critic = Field()
-    rating_user = Field()
     series = Field()
-    series_url = Field()
-    issues = Field()
+    publisher = Field()
+    release = Field()
+    issues_count = Field()
+    issues_list = Field()
+    avg_rating_critic = Field()
+    avg_rating_user = Field()
+
+
 
