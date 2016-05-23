@@ -9,6 +9,5 @@ class ComicsItem(Item):
     issues_list = Field()
     avg_rating_critic = Field()
     avg_rating_user = Field()
-
-
-
+    series_reviews_critic = Field()
+    series_reviews_user = Field()
