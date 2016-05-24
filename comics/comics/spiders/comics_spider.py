@@ -12,87 +12,59 @@ class ComicsSpider(Spider):
     start_urls = [url.strip() for url in f.readlines()]
     f.close()
 
+    # Generic function to get details from xpath in response
+    def getdetail(self, response, path, function, index, alt):
+        try:
+            detail = response.xpath(path).extract()[index]
+            if function == 'int':
+                detail = int(detail)
+            elif function == 'float':
+                detail = float(detail)
+            elif function == 'str':
+                detail = str(detail)
+            return detail
+        except Exception:
+            return alt
+
+    # Main parse function
     def parse(self, response):
         rows = response.xpath('//*[@id="all-series"]/div/table[2]/tr').extract()
         for row in rows:
             series_url = Selector(text=row).xpath('//td[2]/a/@href').extract()
             yield Request('http://comicbookroundup.com'+series_url[0], callback=self.parse_series_contents)
 
+    # Function to parse contents of a given series page
     def parse_series_contents(self, response):
         item = ComicsItem()
 
         # Scrape data from the top of the series page
-        try:
-            item['series'] = str(response.xpath('//span[@itemprop="itemreviewed"]/text()').extract()[0])
-        except Exception as e:
-            item['series'] = None
+        item['series'] = self.getdetail(response, '//span[@itemprop="itemreviewed"]/text()', str, 0, None)
+        item['publisher'] = self.getdetail(response, '//div[@itemprop="description"]/span[1]/a/text()', str, 0, None)
 
-        try:
-            item['publisher'] = str(response.xpath('//div[@itemprop="description"]/span[1]/a/text()').extract()[0])
-        except Exception as e:
-            item['publisher'] = None
-
-        try:
-            item['release'] = str(response.xpath('//div[@itemprop="description"]/span[2]/text()').extract()[0]).strip()
-            if item['release'] == '':
-                item['release'] = None
-        except Exception as e:
+        item['release'] = self.getdetail(response, '//div[@itemprop="description"]/span[2]/text()', str, 0, None).strip()
+        if item['release'] == '':
             item['release'] = None
 
-        try:
-            item['issues_count'] = int(response.xpath('//div[@itemprop="description"]/span[3]/text()').extract()[0])
-        except Exception as e:
-            item['issues_count'] = 0
-
-        try:
-            item['series_reviews_critic'] = int(response.xpath("//span[@itemprop='votes']/text()").extract()[0])
-        except Exception as e:
-            item['series_reviews_critic'] = 0
-
-        try:
-            item['series_reviews_user'] = int(response.xpath("//span[@itemprop='votes']/../text()").extract()[-1])
-        except Exception as e:
-            item['series_reviews_user'] = 0
-
-        try:
-            item['avg_rating_critic'] = float(response.xpath('//span[@itemprop="average"]/text()').extract()[0])
-        except Exception as e:
-            item['avg_rating_critic'] = None
-
-        try:
-            item['avg_rating_user'] = float(response.xpath('//span[@class="rating-title"]/../text()').extract()[1])
-        except Exception as e:
-            item['avg_rating_user'] = None
+        item['issues_count'] = self.getdetail(response, '//div[@itemprop="description"]/span[3]/text()', int, 0, 0)
+        item['series_reviews_critic'] = self.getdetail(response, '//span[@itemprop="votes"]/text()', int, 0, 0)
+        item['series_reviews_user'] = self.getdetail(response, '//span[@itemprop="votes"]/../text()', int, -1, 0)
+        item['avg_rating_critic'] = self.getdetail(response, '//span[@itemprop="average"]/text()', float, 0, None)
+        item['avg_rating_user'] = self.getdetail(response, '//span[@class="rating-title"]/../text()', float, 1, None)
 
         # Scrape data from table of issues in the series page
         rows = response.xpath('//*[@id="issues"]/div[1]/table[2]/tr').extract()
         item['issues_list'] = {}
         for row in rows:
-            try:
-                rating_critic = float(Selector(text=row).xpath('//div[@class="CriticRatingList"]/div/text()').extract()[0])
-            except Exception as e:
-                rating_critic = None
-
-            try:
-                rating_user = float(Selector(text=row).xpath('//div[@class="UserRatingList"]/div/text()').extract()[0])
-            except Exception as e:
-                rating_user = None
+            rating_critic = self.getdetail(Selector(text=row), '//div[@class="CriticRatingList"]/div/text()', float, 0, None)
+            rating_user = self.getdetail(Selector(text=row), '//div[@class="UserRatingList"]/div/text()', float, 0, None)
 
             issue = Selector(text=row).xpath('//td[@class="issues"]/a/text()').extract()
             issue = str(issue).replace('.', '-').replace('#','')
 
-            try:
-                writer = str(Selector(text=row).xpath('//td[@class="writer"]/a/text()').extract()[0])
-            except Exception as e:
-                writer = None
-
-            try:
-                artist = str(Selector(text=row).xpath('//td[@class="artist"]/a/text()').extract()[0])
-            except Exception as e:
-                artist = None
-
-            reviews_critic_count = int(Selector(text=row).xpath('//div[@class="CriticReviewNumList"]/a/text()').extract()[0])
-            reviews_user_count = int(Selector(text=row).xpath('//div[@class="UserReviewNumList"]/a/text()').extract()[0])
+            writer = self.getdetail(Selector(text=row), '//td[@class="writer"]/a/text()', str, 0, None)
+            artist = self.getdetail(Selector(text=row), '//td[@class="artist"]/a/text()', str, 0, None)
+            reviews_critic_count = self.getdetail(Selector(text=row), '//div[@class="CriticReviewNumList"]/a/text()', int, 0, 0)
+            reviews_user_count = self.getdetail(Selector(text=row), '//div[@class="UserReviewNumList"]/a/text()', int, 0, 0)
 
             item['issues_list'][str(issue)] = {'rating_critic': rating_critic,
                                                'rating_user': rating_user,
