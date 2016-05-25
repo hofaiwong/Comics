@@ -15,14 +15,7 @@ class ComicsSpider(Spider):
     # Generic function to get details from xpath in response
     def getdetail(self, response, path, function, index, alt):
         try:
-            detail = response.xpath(path).extract()[index]
-            if function == 'int':
-                detail = int(detail)
-            elif function == 'float':
-                detail = float(detail)
-            elif function == 'str':
-                detail = str(detail)
-            return detail
+            return function(response.xpath(path).extract()[index])
         except Exception:
             return alt
 
